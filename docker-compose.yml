@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: scuilone-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: scuilone_user
+      POSTGRES_PASSWORD: scuilone_password
+      POSTGRES_DB: scuilone_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scuilone_user -d scuilone_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: scuilone-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scuilone-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://scuilone_user:scuilone_password@postgres:5432/scuilone_db
+      SECRET_KEY: scuilone-docker-dev-secret-key-change-in-prod
+      ENABLE_REAL_EMAIL: "false"
+    volumes:
+      - ./backend:/app
+
+volumes:
+  postgres_data:
